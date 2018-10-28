@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "marisco"
+version = "0.1.0"
+
+description = "Asynchronous requests for everyone"
+readme = "README.md"
+
+authors = ["Cauê Baasch de Souza <cauebs@pm.me>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+aiohttp = "^3.4"
+
+[tool.poetry.dev-dependencies]
+pytest = "^3.0"
+flake8 = "^3.5"
+jedi = "^0.13.1"
+autopep8 = "^1.4"
+mypy = "^0.630.0"
