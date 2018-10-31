@@ -1,6 +1,5 @@
 import marisco
 
-
 urls = [
     'https://python.org',
     'https://pypi.org',
@@ -8,9 +7,7 @@ urls = [
     'https://gitlab.com',
 ]
 
-# with marisco.Session() as session:
-#     for response in session.get(urls):
-#         print(len(response))
+responses = marisco.get(urls)
 
-for response in marisco.get(urls):
+for response in responses:
     print(len(response))
