@@ -8,5 +8,9 @@ urls = [
     'https://gitlab.com',
 ]
 
+# with marisco.Session() as session:
+#     for response in session.get(urls):
+#         print(len(response))
+
 for response in marisco.get(urls):
     print(len(response))

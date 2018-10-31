@@ -3,31 +3,68 @@ import aiohttp
 
 from queue import Queue
 from threading import Thread
-from typing import List
 
 
-def request(urls: List[str], *args, **kwargs):
-    q: Queue = Queue(maxsize=len(urls))
-    coro = request_coro(urls, args, kwargs, q)
-    Thread(target=lambda: asyncio.run(coro)).start()
-
-    for _ in urls:
-        yield q.get()
+class StopWorker:
+    pass
 
 
-async def request_coro(urls: List[str], args, kwargs, queue: Queue):
-    # in_order = kwargs.pop('in_order', True)
+async def session_worker(args, kwargs, input_queue, output_queue):
+    async with aiohttp.ClientSession(*args, **kwargs) as session:
+        while True:
+            message = input_queue.get()
 
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            asyncio.create_task(session.request(*args, url=url, ** kwargs))
-            for url in urls
-        ]
+            if message is StopWorker:
+                input_queue.task_done()
+                return
 
-        for task in tasks:
-            response = await task
-            queue.put(await response.text())
+            urls, args, kwargs = message
+
+            tasks = [
+                asyncio.create_task(session.request(*args, url=url, **kwargs))
+                for url in urls
+            ]
+
+            for task in tasks:
+                response = await task
+                output_queue.put(await response.text())
+
+            input_queue.task_done()
 
 
-def get(urls: List[str], *args, **kwargs):
-    yield from request(urls, *args, method='get', **kwargs)
+class Session:
+    def __init__(self, *args, **kwargs):
+        self._input_queue = Queue()
+        self._output_queue = Queue()
+
+        worker_coro = session_worker(
+            args,
+            kwargs,
+            self._input_queue,
+            self._output_queue,
+        )
+
+        self._worker_thread = Thread(target=lambda: asyncio.run(worker_coro))
+        self._worker_thread.start()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self._input_queue.put(StopWorker)
+        self._input_queue.join()
+        self._worker_thread.join()
+
+    def request(self, urls, *args, **kwargs):
+        self._input_queue.put((urls, args, kwargs))
+
+        for _ in urls:
+            yield self._output_queue.get()
+
+    def get(self, urls, *args, **kwargs):
+        yield from self.request(urls, *args, method='get', **kwargs)
+
+
+def get(urls, *args, **kwargs):
+    with Session() as session:
+        yield from session.get(urls, *args, **kwargs)
